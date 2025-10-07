@@ -3,14 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Remote Live Viewer</title>
+    <title>Live Stream Viewer</title>
+    <style>
+        body { background-color: #000; color: #fff; margin: 0; padding: 0; text-align: center; }
+        /* Make the video fill the viewport minus the status bar */
+        #live-feed { width: 100vw; height: calc(100vh - 50px); object-fit: contain; background: black; } 
+        #status-bar { height: 50px; background-color: #222; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
+    </style>
 </head>
 <body>
-    <h1>Remote Camera Live Stream</h1>
-    <div style="max-width: 660px; margin: 0 auto;">
-    <video id="live-feed" muted style="width: 100%; max-width: 640px; border: 2px solid black; display: block; margin-bottom: 10px;" autoplay playsinline></video>
-        <p id="status-message" style="font-weight: bold; color: #333;">Connecting to stream...</p>
+        <video id="live-feed" muted style="width: 100%; max-width: 640px; border: 2px solid black; display: block; margin-bottom: 10px;" autoplay playsinline></video>
+    <div id="status-bar">
+        <span id="status-message">Initializing...</span>
     </div>
+    
     <script src="/socket.io/socket.io.js"></script>
     <script src="webrtc-viewer.js"></script>
 </body>

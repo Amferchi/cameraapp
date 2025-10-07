@@ -3,32 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Available Streams</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Active Streams</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #room-list { list-style: none; padding: 0; }
+        #room-list li { background: #f0f0f0; margin: 5px 0; padding: 15px; border-radius: 5px; }
+        #room-list a { text-decoration: none; color: #007bff; font-weight: bold; }
+    </style>
 </head>
 <body>
-    <h2>Available Live Streams</h2>
-    <ul id="room-list"></ul>
-    <script>
-    fetch('/api/rooms')
-      .then(res => res.json())
-      .then(rooms => {
-        const ul = document.getElementById('room-list');
-        if (rooms.length === 0) {
-          ul.innerHTML = '<li>No live streams available.</li>';
-        } else {
-          rooms.forEach(room => {
-            const li = document.createElement('li');
-            const btn = document.createElement('button');
-            btn.textContent = 'View Room ' + room;
-            btn.onclick = () => {
-              window.location.href = '/viewer.html?room=' + room;
-            };
-            li.appendChild(btn);
-            ul.appendChild(li);
-          });
-        }
-      });
-    </script>
+    <h1>Active Streams</h1>
+    <p id="status">Loading active streams...</p>
+    <ul id="room-list">
+        </ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="rooms.js"></script>
 </body>
 </html>

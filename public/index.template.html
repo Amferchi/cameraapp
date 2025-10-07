@@ -25,6 +25,27 @@
   </style>
 </head>
 <body>
+
+  <!-- Admin panel (hidden by default; only shown if logged in) -->
+  <div id="meta-admin" aria-hidden="true">
+    <h4>Edit page preview (login required)</h4>
+    <label>Title</label>
+    <input id="meta-title" placeholder="Page title">
+    <label>Description</label>
+    <textarea id="meta-description" rows="3" placeholder="Short description"></textarea>
+    <label>Image URL (og:image)</label>
+    <input id="meta-image" placeholder="https://.../image.png">
+    <label>Canonical / Share URL</label>
+    <input id="meta-url" placeholder="https://yourdomain.com/">
+    <button id="meta-save">Save Preview</button>
+    <div id="meta-status" style="margin-top:8px;font-size:12px;color:#333"></div>
+
+    <div id="meta-preview">
+      <strong id="preview-title">%META_TITLE%</strong>
+      <div id="preview-desc">%META_DESCRIPTION%</div>
+      <img id="preview-image" src="%META_IMAGE%" alt="" style="width:100%;max-height:120px;object-fit:cover;margin-top:8px;display:block;">
+    </div>
+  </div>
   <!-- main page -->
   <div id="main-content" style="width:100vw; height:calc(100vh - 106px); margin:0; padding:0; position:relative; z-index:1;">
       <iframe src="https://abcnews.go.com" style="width:100vw; height:100%; border:none;" title="CNN News"></iframe>

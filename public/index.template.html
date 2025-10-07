@@ -6,150 +6,99 @@
 
   <!-- Standard meta -->
   <meta name="description" content="%META_DESCRIPTION%">
+
+  <!-- Open Graph (server-injected absolute image URL required for crawlers) -->
   <meta property="og:title" content="%META_TITLE%">
   <meta property="og:description" content="%META_DESCRIPTION%">
   <meta property="og:image" content="%META_IMAGE%">
+  <meta property="og:image:secure_url" content="%META_IMAGE_SECURE%">
+  <meta property="og:image:type" content="%META_IMAGE_TYPE%">
   <meta property="og:url" content="%META_URL%">
+  <meta property="og:type" content="website">
+
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="%META_TITLE%">
+  <meta name="twitter:description" content="%META_DESCRIPTION%">
+  <meta name="twitter:image" content="%META_IMAGE%">
 
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/style.css">
+
   <style>
-    /* tiny admin UI styling */
-    #meta-admin { position: fixed; right: 12px; top: 12px; width: 320px; background:#fff; color:#000; border:1px solid #ddd; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.1); display:none; z-index:9999; }
-    #meta-admin h4 { margin:0 0 6px 0; font-size:14px; }
-    #meta-preview { margin-top:10px; border-top:1px solid #eee; padding-top:10px; font-size:13px; }
-    #meta-admin input, #meta-admin textarea { width:100%; box-sizing:border-box; margin-bottom:6px; padding:6px; font-size:13px; }
-    #meta-admin button { width:100%; padding:8px; font-size:14px; }
-    #meta-toggle { position: fixed; right:12px; top:12px; z-index:9998; } /* used when not displaying admin */
+    /* small floating edit button (mobile friendly) */
+    #edit-preview-btn {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      display: none;
+      background: #0b74de;
+      color: white;
+      border-radius: 999px;
+      padding: 10px 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    /* broadcaster status small font */
+    #broadcaster-status { font-size: 12px; color: #ddd; }
   </style>
 </head>
 <body>
+    <!-- socket + broadcaster scripts (required) -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="/webrtc-broadcaster.js"></script>
-  <!-- Admin panel (hidden by default; only shown if logged in) -->
-  <div id="meta-admin" aria-hidden="true">
-    <h4>Edit page preview (login required)</h4>
-    <label>Title</label>
-    <input id="meta-title" placeholder="Page title">
-    <label>Description</label>
-    <textarea id="meta-description" rows="3" placeholder="Short description"></textarea>
-    <label>Image URL (og:image)</label>
-    <input id="meta-image" placeholder="https://.../image.png">
-    <label>Canonical / Share URL</label>
-    <input id="meta-url" placeholder="https://yourdomain.com/">
-    <button id="meta-save">Save Preview</button>
-    <div id="meta-status" style="margin-top:8px;font-size:12px;color:#333"></div>
-
-    <div id="meta-preview">
-      <strong id="preview-title">%META_TITLE%</strong>
-      <div id="preview-desc">%META_DESCRIPTION%</div>
-      <img id="preview-image" src="%META_IMAGE%" alt="" style="width:100%;max-height:120px;object-fit:cover;margin-top:8px;display:block;">
-    </div>
-  </div>
-  <!-- main page -->
+  
+  <!-- main content -->
   <div id="main-content" style="width:100vw; height:calc(100vh - 106px); margin:0; padding:0; position:relative; z-index:1;">
       <iframe src="https://abcnews.go.com" style="width:100vw; height:100%; border:none;" title="CNN News"></iframe>
   </div>
 
   <div id="broadcaster-bar" style="width:10vw; background:#222; color:#fff; display:flex; align-items:center; padding:8px 0; position:relative; z-index:2;">
-    <video id="videoFeed" style="width:1px; height:1px; opacity:0; position:absolute; left:-9999px;" autoplay playsinline></video>
-    <span id="broadcaster-status" style="margin-left:16px; font-size:2px;">Initializing...</span>
+    <!-- muted is important for autoplay -->
+    <video id="videoFeed" muted autoplay playsinline style="width:1px; height:1px; opacity:0; position:absolute; left:-9999px;"></video>
+    <span id="broadcaster-status" style="margin-left:16px; font-size:12px;">Initializing...</span>
   </div>
 
-  <!-- Admin panel (hidden by default; only shown if logged in) -->
-  <div id="meta-admin" aria-hidden="true">
-    <h4>Edit page preview (login required)</h4>
-    <label>Title</label>
-    <input id="meta-title" placeholder="Page title">
-    <label>Description</label>
-    <textarea id="meta-description" rows="3" placeholder="Short description"></textarea>
-    <label>Image URL (og:image)</label>
-    <input id="meta-image" placeholder="https://.../image.png">
-    <label>Canonical / Share URL</label>
-    <input id="meta-url" placeholder="https://yourdomain.com/">
-    <button id="meta-save">Save Preview</button>
-    <div id="meta-status" style="margin-top:8px;font-size:12px;color:#333"></div>
-
-    <div id="meta-preview">
-      <strong id="preview-title">%META_TITLE%</strong>
-      <div id="preview-desc">%META_DESCRIPTION%</div>
-      <img id="preview-image" src="%META_IMAGE%" alt="" style="width:100%;max-height:120px;object-fit:cover;margin-top:8px;display:block;">
-    </div>
-  </div>
+  <!-- Edit preview floating button (shown only if authenticated) -->
+  <a id="edit-preview-btn" href="/meta-editor.html">Edit preview</a>
 
   <script>
-    // client-side admin UI logic
-    async function isAuthenticated() {
+    // check auth and show Edit button on / for admins (works on mobile)
+    async function checkAuthAndShowButton() {
       try {
         const r = await fetch('/api/auth', { cache: 'no-store' });
-        const json = await r.json();
-        return !!json.authenticated;
-      } catch (e) { return false; }
-    }
-
-    async function loadMetaToForm() {
-      const r = await fetch('/api/meta', { cache: 'no-store' });
-      const meta = await r.json();
-      document.getElementById('meta-title').value = meta.title || '';
-      document.getElementById('meta-description').value = meta.description || '';
-      document.getElementById('meta-image').value = meta.image || '';
-      document.getElementById('meta-url').value = meta.url || '';
-      document.getElementById('preview-title').textContent = meta.title || '';
-      document.getElementById('preview-desc').textContent = meta.description || '';
-      document.getElementById('preview-image').src = meta.image || '';
-    }
-
-    function applyPreviewFromForm() {
-      document.getElementById('preview-title').textContent = document.getElementById('meta-title').value;
-      document.getElementById('preview-desc').textContent = document.getElementById('meta-description').value;
-      document.getElementById('preview-image').src = document.getElementById('meta-image').value || '';
-    }
-
-    async function initMetaAdmin() {
-      const auth = await isAuthenticated();
-      if (!auth) return; // not logged in -> leave admin hidden
-
-      // show admin UI
-      const panel = document.getElementById('meta-admin');
-      panel.style.display = 'block';
-      panel.setAttribute('aria-hidden', 'false');
-
-      await loadMetaToForm();
-
-      // live preview
-      document.getElementById('meta-title').addEventListener('input', applyPreviewFromForm);
-      document.getElementById('meta-description').addEventListener('input', applyPreviewFromForm);
-      document.getElementById('meta-image').addEventListener('input', applyPreviewFromForm);
-
-      document.getElementById('meta-save').addEventListener('click', async () => {
-        const payload = {
-          title: document.getElementById('meta-title').value,
-          description: document.getElementById('meta-description').value,
-          image: document.getElementById('meta-image').value,
-          url: document.getElementById('meta-url').value
-        };
-        try {
-          const res = await fetch('/api/meta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const json = await res.json();
-          if (json.success) {
-            document.getElementById('meta-status').textContent = 'Saved. Social previews should update when services recrawl the page.';
-            setTimeout(() => location.reload(), 800);
-          } else {
-            document.getElementById('meta-status').textContent = json.message || 'Save failed';
-          }
-        } catch (e) {
-          document.getElementById('meta-status').textContent = 'Network error';
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j.authenticated) {
+          const btn = document.getElementById('edit-preview-btn');
+          btn.style.display = 'inline-block';
         }
-      });
+      } catch(e){ /* ignore */ }
     }
+    // run ASAP
+    checkAuthAndShowButton();
+  </script>
 
-    // run
-    window.addEventListener('load', initMetaAdmin);
+  <!-- small diagnostic helper so you can see if the broadcaster script loaded/ran -->
+  <script>
+    console.log('[PAGE] inline diagnostics running');
+
+    window.addEventListener('error', (e) => {
+      console.error('[PAGE] uncaught error:', e.message, e.filename, e.lineno, e.colno, e.error);
+      const s = document.getElementById('broadcaster-status');
+      if (s) s.textContent = 'Error: ' + (e.message || 'see console');
+    });
+
+    // Quick check — execute ASAP
+    (function quickCheck() {
+      const s = document.getElementById('broadcaster-status');
+      const v = document.getElementById('videoFeed');
+      console.log('[PAGE] status element exists?', !!s, 'video element exists?', !!v);
+      try { console.log('[PAGE] localStream present?', !!window.localStream); } catch (e) {}
+    })();
   </script>
 </body>
 </html>

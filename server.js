@@ -28,40 +28,8 @@ app.get('/viewer.html', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
 });
 
-
-// In-memory meta storage (for demo)
-let meta = {
-  title: 'Remote Camera Broadcaster',
-  image: ''
-};
-
-// Serve meta edit page only if logged in
-app.get('/meta-edit.html', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'meta-edit.html'));
-});
-
-// API to update meta tags (requires login)
-app.post('/api/meta', requireAuth, (req, res) => {
-  const { title, image } = req.body;
-  if (!title || !image) return res.json({ success: false, message: 'Missing fields' });
-  meta.title = title;
-  meta.image = image;
-  res.json({ success: true });
-});
-
-// Serve index.html with dynamic meta tags
-app.get('/', (req, res) => {
-  const fs = require('fs');
-  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  // Replace <title> and og:image
-  html = html.replace(/<title>.*<\/title>/, `<title>${meta.title}</title>`);
-  if (html.includes('property="og:image"')) {
-    html = html.replace(/<meta property="og:image" content="[^"]*"\s*\/>/, `<meta property="og:image" content="${meta.image}" />`);
-  } else if (meta.image) {
-    html = html.replace('</head>', `<meta property="og:image" content="${meta.image}" />\n</head>`);
-  }
-  res.send(html);
-});
+// Serve meta edit page (if you add one)
+// app.get('/meta-edit.html', requireAuth, ...)
 
 // Login API
 app.post('/api/login', (req, res) => {

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Camera Broadcaster</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="main-content">
+        <h1>Camera Broadcaster & Live Preview</h1>
+        <p>Your browser is requesting permission to check your camera. Please click 'Allow' in the pop-up above to continue.</p>
+    <video id="videoFeed" style="width: 320px; height: 240px; border: 2px solid green; display: block; margin: 0 auto;" autoplay playsinline></video>
+    <p id="broadcaster-status">Initializing...</p>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="webrtc-broadcaster.js"></script>
+</body>
+</html>

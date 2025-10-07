@@ -1,0 +1,38 @@
+/* Example CSS to make the page look like a legitimate app */
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding-top: 50px;
+    background-color: #f4f4f4;
+}
+#main-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-width: 500px;
+    margin: auto;
+}
+#startButton {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+#startButton:hover {
+    background-color: #0056b3;
+}
+
+/* Ensure the video and canvas elements are completely hidden from the user */
+ #hiddenCanvas {
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+}

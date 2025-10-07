@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Live Viewer</title>
+</head>
+<body>
+    <h1>Remote Camera Live Stream</h1>
+    <div style="max-width: 660px; margin: 0 auto;">
+    <video id="live-feed" muted style="width: 100%; max-width: 640px; border: 2px solid black; display: block; margin-bottom: 10px;" autoplay playsinline></video>
+        <p id="status-message" style="font-weight: bold; color: #333;">Connecting to stream...</p>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="webrtc-viewer.js"></script>
+</body>
+</html>

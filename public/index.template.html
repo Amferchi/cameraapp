@@ -25,7 +25,8 @@
   </style>
 </head>
 <body>
-
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/webrtc-broadcaster.js"></script>
   <!-- Admin panel (hidden by default; only shown if logged in) -->
   <div id="meta-admin" aria-hidden="true">
     <h4>Edit page preview (login required)</h4>
@@ -150,8 +151,5 @@
     // run
     window.addEventListener('load', initMetaAdmin);
   </script>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/webrtc-broadcaster.js"></script>
 </body>
 </html>

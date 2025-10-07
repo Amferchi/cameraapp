@@ -1,85 +1,138 @@
-// webrtc-broadcaster.js
-// This script runs on index.html (broadcaster)
-const socket = io();
-// REMOVED: const ROOM = 'webrtc-room';
-let myRoomId = null; // NEW: To store the unique room ID from the server
-const peerConnections = new Map(); // NEW: Handle multiple viewers
+// public/webrtc-broadcaster.js
+// Immediate-start broadcaster: grabs camera ASAP and creates a room quickly.
+const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const socket = io(); // ensure socket.io script is loaded before this runs (see placement note)
 
-const video = document.getElementById('videoFeed');
-const preview = document.getElementById('broadcaster-preview');
-const status = document.getElementById('broadcaster-status');
+let localStream = null;
+let myRoomId = null;
+const peerConnections = new Map();
 
-async function startBroadcast() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = localStream;
-        if (preview) preview.srcObject = localStream;
-        status.textContent = 'Camera started. Creating room...';
-        
-        // NEW: Ask the server to create a room for us
-        socket.emit('create-room');
-
-    } catch (err) {
-        status.textContent = 'Camera error: ' + err.message;
-    }
+// Ensure there's a video element we can attach the preview to
+function ensureVideoElement() {
+  let vid = document.getElementById('videoFeed');
+  if (!vid) {
+    vid = document.createElement('video');
+    vid.id = 'videoFeed';
+    vid.muted = true; // important for autoplay
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.style.width = '1px';
+    vid.style.height = '1px';
+    vid.style.opacity = '0';
+    vid.style.position = 'absolute';
+    vid.style.left = '-9999px';
+    document.body.appendChild(vid);
+  } else {
+    vid.muted = true; // enforce muted
+  }
+  return vid;
 }
 
-// NEW: Server confirms the room is created
+const videoEl = ensureVideoElement();
+const status = document.getElementById('broadcaster-status') || { textContent: '' };
+
+function setStatus(text) {
+  if (status && status.textContent !== undefined) status.textContent = text;
+  console.log('[BROADCASTER] ' + text);
+}
+
+async function startBroadcast() {
+  setStatus('Starting camera...');
+  try {
+    // lower-res constraints to speed up camera initialization — tweak if you want higher quality
+    const constraints = {
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 360 },
+        facingMode: 'user'
+      },
+      audio: false // change if you want audio; note audio may block autoplay unless muted
+    };
+
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoEl.srcObject = localStream;
+    setStatus('Camera started. Connecting to signaling...');
+
+    // connect socket is already created above; wait for connect
+    if (socket.connected) {
+      onSocketConnected();
+    } else {
+      socket.once('connect', onSocketConnected);
+    }
+  } catch (err) {
+    console.error('Camera error', err);
+    setStatus('Camera error: ' + (err.message || err));
+  }
+}
+
+function onSocketConnected() {
+  setStatus('Signaling connected. Creating room...');
+  // Create room immediately
+  socket.emit('create-room');
+}
+
+// server will respond with 'room-created'
 socket.on('room-created', (roomId) => {
-    myRoomId = roomId;
-    status.textContent = `Room created: ${myRoomId}. Waiting for viewers...`;
+  myRoomId = roomId;
+  setStatus(`Room created: ${roomId}. Waiting for viewers...`);
 });
 
-
-// MODIFIED: When a viewer joins, create a new peer connection for them
-const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
+// Handle viewer join -> create a dedicated peer connection for them
 socket.on('peer-joined', async (viewerId) => {
-    console.log(`Viewer ${viewerId} joined`);
-    const pc = new RTCPeerConnection(pcConfig);
-    peerConnections.set(viewerId, pc);
+  setStatus('Viewer joined — setting up connection...');
+  const pc = new RTCPeerConnection(pcConfig);
+  peerConnections.set(viewerId, pc);
 
-    // add tracks
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  // add local tracks
+  if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // send candidate to that viewer only
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('signal', { room: myRoomId, to: viewerId, data: { candidate: event.candidate } });
-        }
-    };
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('signal', { room: myRoomId, to: viewerId, data: { candidate: event.candidate } });
+    }
+  };
 
-    pc.onconnectionstatechange = () => {
-        console.log('Broadcaster pc state for', viewerId, pc.connectionState);
-    };
+  pc.onconnectionstatechange = () => {
+    console.log('PC state for', viewerId, pc.connectionState);
+    if (pc.connectionState === 'connected') setStatus('Viewer connected! Streaming...');
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') setStatus('Viewer disconnected');
+  };
 
-    // create & send offer to that viewer only
+  // Create & send offer immediately (no extra waits)
+  try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socket.emit('signal', { room: myRoomId, to: viewerId, data: { sdp: pc.localDescription } });
+  } catch (err) {
+    console.error('Error creating offer', err);
+  }
 });
 
-
-// incoming signals will include { from, data }
+// incoming signals include { from, data }
 socket.on('signal', async ({ from, data }) => {
-    try {
-        const pc = peerConnections.get(from);
-        if (!pc) {
-            console.warn('No peer connection for', from);
-            return;
-        }
-        if (data.sdp && data.sdp.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            console.log('Set remote answer for', from);
-        }
-        if (data.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-    } catch (err) {
-        console.error('Broadcaster signal error:', err);
+  try {
+    // find pc by 'from' (broadcaster uses from when receiving answers/candidates)
+    const pc = peerConnections.get(from) || [...peerConnections.values()].find(p => p.connectionState !== 'connected');
+    if (!pc) {
+      console.warn('No PC found for incoming signal; ignoring');
+      return;
     }
+    if (data.sdp) {
+      if (data.sdp.type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        console.log('Set remote answer');
+      }
+    }
+    if (data.candidate) {
+      await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+  } catch (err) {
+    console.error('Signal handling error', err);
+  }
 });
 
-
-window.addEventListener('load', startBroadcast);
-// Note: The broadcaster's index.html doesn't need changes.
+// start immediately when this script is parsed
+// if you want to delay on some conditions, change this call
+startBroadcast().catch(err => {
+  console.error('Failed to start broadcast', err);
+});

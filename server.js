@@ -133,13 +133,35 @@ app.get('/', (req, res) => {
     let html = fs.readFileSync(templatePath, 'utf8');
     const meta = loadMeta();
 
+    // Build an absolute image URL for crawlers if the saved meta.image is relative
+    let imageUrl = meta.image || '';
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+        // ensure no leading slash duplication
+        imageUrl = `${req.protocol}://${req.get('host')}/${imageUrl.replace(/^\/+/, '')}`;
+    }
+
+    // infer mime-type from extension (simple heuristic)
+    let imageType = '';
+    if (imageUrl.match(/\.png(\?.*)?$/i)) imageType = 'image/png';
+    else if (imageUrl.match(/\.webp(\?.*)?$/i)) imageType = 'image/webp';
+    else if (imageUrl.match(/\.(gif|jpeg|jpg)(\?.*)?$/i)) imageType = 'image/jpeg';
+
     html = html.replace(/%META_TITLE%/g, escapeHtml(meta.title || ''));
     html = html.replace(/%META_DESCRIPTION%/g, escapeHtml(meta.description || ''));
-    html = html.replace(/%META_IMAGE%/g, escapeHtml(meta.image || ''));
+    html = html.replace(/%META_IMAGE%/g, escapeHtml(imageUrl || ''));
+    html = html.replace(/%META_IMAGE_SECURE%/g, escapeHtml(imageUrl || ''));
+    html = html.replace(/%META_IMAGE_TYPE%/g, escapeHtml(imageType || ''));
     html = html.replace(/%META_URL%/g, escapeHtml(meta.url || ''));
 
     res.send(html);
 });
+
+
+// Serve meta editor page (separate mobile-friendly editor)
+app.get('/meta-editor.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'meta-editor.html'));
+});
+
 
 // Simple escape helper
 function escapeHtml(str) {

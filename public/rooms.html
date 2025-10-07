@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Streams</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h2>Available Live Streams</h2>
+    <ul id="room-list"></ul>
+    <script>
+    fetch('/api/rooms')
+      .then(res => res.json())
+      .then(rooms => {
+        const ul = document.getElementById('room-list');
+        if (rooms.length === 0) {
+          ul.innerHTML = '<li>No live streams available.</li>';
+        } else {
+          rooms.forEach(room => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.textContent = 'View Room ' + room;
+            btn.onclick = () => {
+              window.location.href = '/viewer.html?room=' + room;
+            };
+            li.appendChild(btn);
+            ul.appendChild(li);
+          });
+        }
+      });
+    </script>
+</body>
+</html>

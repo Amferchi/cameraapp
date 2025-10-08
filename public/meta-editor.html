@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Edit Link Preview</title>
+  <title>Edit Link Preview & Embed</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/style.css">
   <style>
@@ -12,16 +12,18 @@
     input, textarea { width:100%; padding:8px; margin-top:6px; box-sizing:border-box; border:1px solid #e6e6e6; border-radius:6px; font-size:14px; }
     button { margin-top:12px; width:100%; padding:10px; border-radius:8px; border:0; background:#0b74de; color:#fff; font-weight:700; }
     .preview { margin-top:12px; display:flex; gap:12px; align-items:flex-start; }
-    .preview img { width:120px; height:80px; object-fit:cover; border-radius:6px; }
-    .preview .meta { flex:1; }
+    .preview img { width:120px; height:80px; object-fit:cover; border-radius:6px; background:#eee; }
     .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
     .link-back { text-decoration:none; color:#0b74de; font-weight:600; }
+    .small { font-size:12px; color:#666; margin-top:8px; }
+    .muted { color:#888; font-size:13px; }
+    #iframe-preview { width:100%; height:220px; border:1px solid #e6e6e6; border-radius:6px; margin-top:8px; }
   </style>
 </head>
 <body>
   <div class="topbar">
     <a class="link-back" href="/">← Back</a>
-    <div>Edit link preview</div>
+    <div>Edit preview & embed</div>
     <div></div>
   </div>
 
@@ -32,13 +34,18 @@
     <label>Description</label>
     <textarea id="meta-description" rows="3" placeholder="Description"></textarea>
 
-    <label>Image URL (absolute, HTTPS recommended)</label>
-    <input id="meta-image" placeholder="https://yourdomain.com/path/to/image.jpg">
+    <label>Image URL (absolute or relative)</label>
+    <input id="meta-image-url" placeholder="https://yourdomain.com/path/to/image.jpg">
 
     <label>Canonical / Share URL</label>
     <input id="meta-url" placeholder="https://yourdomain.com/">
 
-    <button id="meta-save">Save preview</button>
+    <label>Iframe Source (http(s) URL to embed in index)</label>
+    <input id="meta-iframe-src" placeholder="https://example.com/">
+
+    <div class="small muted">Provide an absolute http or https URL. Admin-only. Server will validate.</div>
+
+    <button id="meta-save">Save preview & embed</button>
     <div id="meta-status" style="margin-top:10px;font-size:13px;color:#333"></div>
 
     <div class="preview" style="margin-top:12px">
@@ -46,6 +53,10 @@
       <div class="meta">
         <div id="preview-title" style="font-weight:700"></div>
         <div id="preview-desc" style="color:#555;font-size:13px;margin-top:6px"></div>
+        <div style="margin-top:10px;">
+          <label style="font-size:12px;color:#666">Iframe preview</label>
+          <iframe id="iframe-preview" src=""></iframe>
+        </div>
       </div>
     </div>
   </div>
@@ -57,8 +68,9 @@
         const j = await r.json();
         document.getElementById('meta-title').value = j.title || '';
         document.getElementById('meta-description').value = j.description || '';
-        document.getElementById('meta-image').value = j.image || '';
+        document.getElementById('meta-image-url').value = j.image || '';
         document.getElementById('meta-url').value = j.url || '';
+        document.getElementById('meta-iframe-src').value = j.iframeSrc || '';
         refreshPreview();
       } catch(e) { console.error(e); }
     }
@@ -66,40 +78,63 @@
     function refreshPreview() {
       document.getElementById('preview-title').textContent = document.getElementById('meta-title').value;
       document.getElementById('preview-desc').textContent = document.getElementById('meta-description').value;
-      const img = document.getElementById('meta-image').value || '';
-      document.getElementById('preview-image').src = img;
+      const url = document.getElementById('meta-image-url').value;
+      document.getElementById('preview-image').src = url || '';
+      const iframeUrl = document.getElementById('meta-iframe-src').value || '';
+      // Only set iframe preview if valid-looking HTTP URL
+      if (/^https?:\/\//i.test(iframeUrl)) {
+        document.getElementById('iframe-preview').src = iframeUrl;
+      } else {
+        document.getElementById('iframe-preview').src = 'about:blank';
+      }
     }
 
-    document.getElementById('meta-title').addEventListener('input', refreshPreview);
-    document.getElementById('meta-description').addEventListener('input', refreshPreview);
-    document.getElementById('meta-image').addEventListener('input', refreshPreview);
+    ['meta-title','meta-description','meta-image-url','meta-iframe-src'].forEach(id => {
+      document.getElementById(id).addEventListener('input', refreshPreview);
+    });
 
     document.getElementById('meta-save').addEventListener('click', async () => {
-      const payload = {
-        title: document.getElementById('meta-title').value,
-        description: document.getElementById('meta-description').value,
-        image: document.getElementById('meta-image').value,
-        url: document.getElementById('meta-url').value
-      };
+      const status = document.getElementById('meta-status');
+      status.textContent = 'Saving...';
+
+      const title = document.getElementById('meta-title').value.trim();
+      const description = document.getElementById('meta-description').value.trim();
+      const image = document.getElementById('meta-image-url').value.trim();
+      const url = document.getElementById('meta-url').value.trim();
+      const iframeSrc = document.getElementById('meta-iframe-src').value.trim();
+
+      if (!title || !description) {
+        status.textContent = 'Title and description are required';
+        return;
+      }
+
+      // Basic client-side validation of iframe (server will also validate)
+      if (iframeSrc && iframeSrc.length > 0 && !/^https?:\/\//i.test(iframeSrc)) {
+        status.textContent = 'Iframe src must be an absolute http(s) URL';
+        return;
+      }
+
       try {
+        const payload = { title, description, image, url, iframeSrc };
         const res = await fetch('/api/meta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
-        const json = await res.json();
-        if (json.success) {
-          document.getElementById('meta-status').textContent = 'Saved. Crawlers will show the new preview when they next scrape (use cache-busting to force).';
-          setTimeout(()=>location.href='/',800);
+        const j = await res.json();
+        if (j.success) {
+          status.textContent = 'Saved. Server-injected preview & iframe updated. Reloading...';
+          setTimeout(() => window.location.href = '/?v=' + Date.now(), 700);
         } else {
-          document.getElementById('meta-status').textContent = json.message || 'Save failed';
+          status.textContent = j.message || 'Save failed';
         }
       } catch (err) {
-        document.getElementById('meta-status').textContent = 'Network error';
+        console.error(err);
+        status.textContent = 'Network error';
       }
     });
 
-    // load on open
+    // load initially
     loadMeta();
   </script>
 </body>

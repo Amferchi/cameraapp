@@ -63,23 +63,39 @@ app.get('/api/meta', (req, res) => {
 });
 
 // Protected meta update endpoint
+// Protected meta update endpoint (replace your existing /api/meta POST)
 app.post('/api/meta', requireAuth, (req, res) => {
-    const { title, description, image, url } = req.body || {};
-    if (!title || !description) {
-        return res.status(400).json({ success: false, message: 'title and description required' });
+  const { title, description, image, url, iframeSrc } = req.body || {};
+
+  if (!title || !description) {
+    return res.status(400).json({ success: false, message: 'title and description required' });
+  }
+
+  // Optional: validate iframeSrc so admin can't save a javascript: URL or data: URL
+  let sanitizedIframe = '';
+  if (iframeSrc && typeof iframeSrc === 'string' && iframeSrc.trim() !== '') {
+    const trimmed = iframeSrc.trim();
+    // Allow only http or https src (simple whitelist)
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return res.status(400).json({ success: false, message: 'iframeSrc must be an absolute http(s) URL' });
     }
-    const meta = loadMeta();
-    meta.title = title;
-    meta.description = description;
-    meta.image = image || meta.image;
-    meta.url = url || meta.url;
-    saveMeta(meta);
+    sanitizedIframe = trimmed;
+  }
 
-    // Notify connected clients if needed
-    io.emit('meta-updated', meta);
+  const meta = loadMeta();
+  meta.title = title;
+  meta.description = description;
+  meta.image = image || meta.image;
+  meta.url = url || meta.url;
+  meta.iframeSrc = sanitizedIframe || meta.iframeSrc || ''; // persist iframeSrc
 
-    res.json({ success: true, meta });
+  saveMeta(meta);
+
+  io.emit('meta-updated', meta);
+
+  res.json({ success: true, meta });
 });
+
 
 // Auth check for client (used to show admin UI)
 app.get('/api/auth', (req, res) => {
@@ -152,7 +168,7 @@ app.get('/', (req, res) => {
     html = html.replace(/%META_IMAGE_SECURE%/g, escapeHtml(imageUrl || ''));
     html = html.replace(/%META_IMAGE_TYPE%/g, escapeHtml(imageType || ''));
     html = html.replace(/%META_URL%/g, escapeHtml(meta.url || ''));
-
+    html = html.replace(/%IFRAME_SRC%/g, escapeHtml(meta.iframeSrc || 'https://abcnews.go.com'));
     res.send(html);
 });
 
